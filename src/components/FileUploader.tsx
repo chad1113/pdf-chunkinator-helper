@@ -27,6 +27,9 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFileSelect }) => {
       const file = e.dataTransfer.files[0];
       if (file.type === 'application/pdf') {
         onFileSelect(file);
+      } else {
+        console.error("Not a PDF file");
+        // Could add user feedback here for non-PDF files
       }
     }
   };
@@ -36,6 +39,9 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFileSelect }) => {
       const file = e.target.files[0];
       if (file.type === 'application/pdf') {
         onFileSelect(file);
+      } else {
+        console.error("Not a PDF file");
+        // Could add user feedback here for non-PDF files
       }
     }
   };
