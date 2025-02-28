@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { FilePdf } from 'lucide-react';
+import { FilePdf2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface FileUploaderProps {
@@ -59,7 +59,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFileSelect }) => {
         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
       />
       <div className="file-icon mb-4 text-muted-foreground">
-        <FilePdf size={48} strokeWidth={1.5} className={cn("transition-transform duration-300", isDragging && "scale-110")} />
+        <FilePdf2 size={48} strokeWidth={1.5} className={cn("transition-transform duration-300", isDragging && "scale-110")} />
       </div>
       <h3 className="text-lg font-medium mb-2">Drag & drop your PDF here</h3>
       <p className="text-sm text-muted-foreground mb-4">or click to select</p>
