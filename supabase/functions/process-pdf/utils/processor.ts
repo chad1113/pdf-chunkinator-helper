@@ -31,7 +31,7 @@ export async function processPdfIntoChunks(
     // Read the file as ArrayBuffer for PDF parsing
     const fileBuffer = await file.arrayBuffer();
     
-    // Extract real text from PDF and split into chunks
+    // Try to extract real text from PDF and split into chunks
     const { chunks, tokenCounts } = await extractChunksFromPdf(fileBuffer, 15000);
     
     // If no chunks were extracted, fall back to simulation
