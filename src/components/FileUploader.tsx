@@ -2,8 +2,8 @@
 import React, { useState } from 'react';
 import { FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { isPdfFile } from '@/utils/fileValidation';
-import { toast } from '@/hooks/use-toast';
+import { isAllowedFile } from '@/utils/fileValidation';
+import { toast } from 'sonner';
 
 interface FileUploaderProps {
   onFileSelect: (file: File) => void;
@@ -27,14 +27,12 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFileSelect }) => {
     
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
-      if (isPdfFile(file)) {
+      if (isAllowedFile(file)) {
         onFileSelect(file);
       } else {
-        console.error("Not a PDF file");
-        toast({
-          title: "Invalid file format",
-          description: "Please upload a PDF file",
-          variant: "destructive",
+        console.error("Not a supported file format");
+        toast.error("Invalid file format", {
+          description: "Please upload a PDF or DOCX file",
           duration: 3000,
         });
       }
@@ -44,14 +42,12 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFileSelect }) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      if (isPdfFile(file)) {
+      if (isAllowedFile(file)) {
         onFileSelect(file);
       } else {
-        console.error("Not a PDF file");
-        toast({
-          title: "Invalid file format",
-          description: "Please upload a PDF file",
-          variant: "destructive",
+        console.error("Not a supported file format");
+        toast.error("Invalid file format", {
+          description: "Please upload a PDF or DOCX file",
           duration: 3000,
         });
       }
@@ -71,7 +67,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFileSelect }) => {
     >
       <input
         type="file"
-        accept=".pdf"
+        accept=".pdf,.docx"
         onChange={handleFileChange}
         id="file-upload"
         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
@@ -79,14 +75,17 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFileSelect }) => {
       <div className="file-icon mb-4 text-muted-foreground">
         <FileText size={48} strokeWidth={1.5} className={cn("transition-transform duration-300", isDragging && "scale-110")} />
       </div>
-      <h3 className="text-lg font-medium mb-2">Drag & drop your PDF here</h3>
+      <h3 className="text-lg font-medium mb-2">Drag & drop your document here</h3>
       <p className="text-sm text-muted-foreground mb-4">or click to select</p>
       <button
         className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 transition-colors"
         onClick={() => document.getElementById('file-upload')?.click()}
       >
-        Select PDF File
+        Select PDF or DOCX File
       </button>
+      <p className="text-xs text-muted-foreground mt-4">
+        Supported formats: PDF, DOCX
+      </p>
     </div>
   );
 };

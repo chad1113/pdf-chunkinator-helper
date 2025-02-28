@@ -13,6 +13,8 @@ interface PdfProcessorProps {
 const PdfProcessor: React.FC<PdfProcessorProps> = ({ file, isProcessing, onProcess }) => {
   if (!file) return null;
 
+  const fileType = file.name.toLowerCase().endsWith('.pdf') ? 'PDF' : 'DOCX';
+
   return (
     <div className="w-full animate-slide-up">
       <div className="bg-card border rounded-lg p-6 shadow-sm">
@@ -33,6 +35,13 @@ const PdfProcessor: React.FC<PdfProcessorProps> = ({ file, isProcessing, onProce
                 {formatFileSize(file.size)}
               </span>
             </div>
+            
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium">File type:</span>
+              <span className="text-sm text-muted-foreground font-mono">
+                {fileType}
+              </span>
+            </div>
           </div>
         </div>
         
@@ -50,15 +59,15 @@ const PdfProcessor: React.FC<PdfProcessorProps> = ({ file, isProcessing, onProce
           <Play size={18} className={isProcessing ? "animate-pulse" : ""} />
           <span>
             {isProcessing 
-              ? "Processing PDF (this may take a moment)..." 
-              : "Process PDF"
+              ? `Processing ${fileType} (this may take a moment)...` 
+              : `Process ${fileType}`
             }
           </span>
         </button>
         
         {isProcessing && (
           <div className="mt-4 text-sm text-muted-foreground">
-            <p>The PDF is being processed. This includes:</p>
+            <p>The file is being processed. This includes:</p>
             <ul className="list-disc pl-5 mt-2 space-y-1">
               <li>Uploading the file</li>
               <li>Extracting text content</li>

@@ -4,12 +4,30 @@
  */
 
 /**
- * Validates if a file is a PDF
+ * Validates if a file is a PDF or DOCX
  * @param file The file to validate
- * @returns Boolean indicating if the file is a valid PDF
+ * @returns Boolean indicating if the file is a valid PDF or DOCX
  */
 export const isPdfFile = (file: File): boolean => {
   return file.type === 'application/pdf';
+};
+
+/**
+ * Validates if a file is a DOCX
+ * @param file The file to validate
+ * @returns Boolean indicating if the file is a valid DOCX
+ */
+export const isDocxFile = (file: File): boolean => {
+  return file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+};
+
+/**
+ * Validates if a file is an allowed document type (PDF or DOCX)
+ * @param file The file to validate
+ * @returns Boolean indicating if the file is a valid document type
+ */
+export const isAllowedFile = (file: File): boolean => {
+  return isPdfFile(file) || isDocxFile(file);
 };
 
 /**

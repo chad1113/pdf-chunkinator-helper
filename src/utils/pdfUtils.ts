@@ -1,12 +1,15 @@
+
 import { Chunk } from "@/components/ChunkList";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 /**
- * Process a PDF file by uploading it to Supabase for processing
+ * Process a document file (PDF or DOCX) by uploading it to Supabase for processing
  */
 export const splitPdfIntoChunks = async (file: File): Promise<Chunk[]> => {
   try {
+    const fileType = file.name.toLowerCase().endsWith('.pdf') ? 'PDF' : 'DOCX';
+    
     toast.info(`Processing ${file.name}...`, {
       description: "This may take a minute for large documents."
     });
@@ -15,27 +18,27 @@ export const splitPdfIntoChunks = async (file: File): Promise<Chunk[]> => {
     const formData = new FormData();
     formData.append('file', file);
 
-    // Call Supabase Edge Function to process the PDF
+    // Call Supabase Edge Function to process the file
     const { data, error } = await supabase.functions.invoke('process-pdf', {
       body: formData,
     });
 
     if (error) {
-      console.error('Error processing PDF:', error);
-      toast.error('Failed to process PDF', {
+      console.error(`Error processing ${fileType}:`, error);
+      toast.error(`Failed to process ${fileType}`, {
         description: error.message
       });
-      throw new Error(`Failed to process PDF: ${error.message}`);
+      throw new Error(`Failed to process ${fileType}: ${error.message}`);
     }
 
     // Parse response from the Edge Function
     if (!data || !data.success) {
       const errorMessage = data?.error || 'Unknown error';
-      console.error('Error in PDF processing response:', errorMessage);
-      toast.error('PDF processing failed', {
+      console.error(`Error in ${fileType} processing response:`, errorMessage);
+      toast.error(`${fileType} processing failed`, {
         description: errorMessage
       });
-      throw new Error(`PDF processing failed: ${errorMessage}`);
+      throw new Error(`${fileType} processing failed: ${errorMessage}`);
     }
 
     // Convert the response to the expected Chunk format
@@ -44,7 +47,7 @@ export const splitPdfIntoChunks = async (file: File): Promise<Chunk[]> => {
       const content = await fetchChunkContent(chunk.id);
       return {
         id: chunk.id,
-        filename: `${file.name.replace('.pdf', '')}_chunk_${chunk.chunk_number}.txt`,
+        filename: `${file.name.replace(/\.(pdf|docx)$/i, '')}_chunk_${chunk.chunk_number}.txt`,
         tokens: chunk.tokens,
         content: content
       };
@@ -54,7 +57,7 @@ export const splitPdfIntoChunks = async (file: File): Promise<Chunk[]> => {
     const chunks = await Promise.all(chunksPromises);
 
     console.log(`Created ${chunks.length} chunks from ${file.name}`);
-    toast.success(`PDF processing complete`, {
+    toast.success(`${fileType} processing complete`, {
       description: `Created ${chunks.length} chunks`
     });
     
@@ -65,7 +68,7 @@ export const splitPdfIntoChunks = async (file: File): Promise<Chunk[]> => {
     
     if (chunksWithIssues.length > 0 && chunksWithIssues.length === chunks.length) {
       toast.warning(`Text extraction issues detected`, {
-        description: `Your PDF may contain mostly images or need optical character recognition.`
+        description: `Your ${fileType} may contain mostly images or need optical character recognition.`
       });
     } else if (chunksWithIssues.length > 0) {
       toast.warning(`Some chunks have text extraction issues`, {
@@ -75,8 +78,8 @@ export const splitPdfIntoChunks = async (file: File): Promise<Chunk[]> => {
     
     return chunks;
   } catch (error) {
-    console.error('Error in PDF processing:', error);
-    toast.error('PDF processing failed', {
+    console.error('Error in document processing:', error);
+    toast.error('Document processing failed', {
       description: error instanceof Error ? error.message : 'Unknown error occurred'
     });
     throw error;
@@ -110,7 +113,7 @@ const fetchChunkContent = async (chunkId: string): Promise<string> => {
     
     // Second check - does this content have encoding issues?
     if (containsHighPercentageOfUnreadableChars(data.content)) {
-      return `[Note: This chunk may contain encoding issues or non-textual content. The PDF might be scanned or contain images rather than searchable text.]
+      return `[Note: This chunk may contain encoding issues or non-textual content. The document might be scanned or contain images rather than searchable text.]
 
 ${cleanupGarbledText(data.content)}`;
     }

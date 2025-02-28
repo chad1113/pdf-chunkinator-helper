@@ -4,7 +4,7 @@ import FileUploader from '@/components/FileUploader';
 import PdfProcessor from '@/components/PdfProcessor';
 import ChunkList, { Chunk } from '@/components/ChunkList';
 import { splitPdfIntoChunks } from '@/utils/pdfUtils';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/toaster';
 
 const Index = () => {
@@ -17,8 +17,7 @@ const Index = () => {
     setSelectedFile(file);
     setChunks([]);
     setShowResults(false);
-    toast({
-      title: "File selected",
+    toast.success("File selected", {
       description: `${file.name} has been selected.`,
       duration: 3000,
     });
@@ -31,23 +30,20 @@ const Index = () => {
     setShowResults(false);
     
     try {
-      // In a real application, this would call an API endpoint
-      // that would process the PDF server-side
+      // Process the file using our utility function
       const resultChunks = await splitPdfIntoChunks(selectedFile);
       
       setChunks(resultChunks);
       setShowResults(true);
       
-      toast({
-        title: "Processing complete",
+      toast.success("Processing complete", {
         description: `Split into ${resultChunks.length} chunks successfully.`,
         duration: 5000,
       });
     } catch (error) {
-      console.error("Error processing PDF:", error);
-      toast({
-        title: "Processing failed",
-        description: "There was an error processing your PDF.",
+      console.error("Error processing file:", error);
+      toast.error("Processing failed", {
+        description: "There was an error processing your file.",
         variant: "destructive",
         duration: 5000,
       });
@@ -56,14 +52,17 @@ const Index = () => {
     }
   };
 
+  // Determine if the selected file is a PDF or DOCX
+  const fileType = selectedFile?.name.toLowerCase().endsWith('.pdf') ? 'PDF' : 'DOCX';
+
   return (
     <div className="min-h-screen bg-background py-12 px-4 sm:px-6">
       <Toaster />
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-12 animate-fade-in">
-          <h1 className="text-4xl font-bold tracking-tight mb-3">PDF Chunker</h1>
+          <h1 className="text-4xl font-bold tracking-tight mb-3">Document Chunker</h1>
           <p className="text-lg text-muted-foreground">
-            Upload a PDF file and split it into chunks of maximum 100k tokens.
+            Upload a document (PDF or DOCX) and split it into chunks of maximum 100k tokens.
           </p>
         </div>
         
@@ -93,7 +92,7 @@ const Index = () => {
                     }}
                     className="text-sm text-muted-foreground hover:text-foreground underline"
                   >
-                    Process another PDF
+                    Process another document
                   </button>
                 </div>
               )}
@@ -102,7 +101,7 @@ const Index = () => {
         </div>
         
         <footer className="mt-16 text-center text-sm text-muted-foreground">
-          <p>PDF Chunker Tool &copy; {new Date().getFullYear()}</p>
+          <p>Document Chunker Tool &copy; {new Date().getFullYear()}</p>
         </footer>
       </div>
     </div>
