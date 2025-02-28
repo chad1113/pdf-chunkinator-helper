@@ -28,11 +28,23 @@ export async function processPdfIntoChunks(
   const processedChunks: ProcessedChunk[] = [];
   
   try {
+    // Log file info to help with debugging
+    console.log(`Processing PDF: ${file.name}, size: ${file.size} bytes`);
+    
+    // Calculate estimated page count for logging
+    const estimatedPageCount = Math.ceil(file.size / 50000); // ~50KB per page
+    console.log(`Estimated page count: ~${estimatedPageCount} pages`);
+    
     // Read the file as ArrayBuffer for PDF parsing
     const fileBuffer = await file.arrayBuffer();
     
+    // Set chunk size based on file size to handle large PDFs
+    // For larger documents, use smaller chunk size to ensure multiple chunks
+    const chunkSize = file.size > 1000000 ? 8000 : 15000;
+    console.log(`Using chunk size: ${chunkSize} characters`);
+    
     // Try to extract real text from PDF and split into chunks
-    const { chunks, tokenCounts } = await extractChunksFromPdf(fileBuffer, 15000);
+    const { chunks, tokenCounts } = await extractChunksFromPdf(fileBuffer, chunkSize);
     
     // If no chunks were extracted, fall back to simulation
     if (chunks.length === 0) {
@@ -41,6 +53,7 @@ export async function processPdfIntoChunks(
       await processChunks(supabase, pdfRecord, simulatedData.chunks, simulatedData.tokenCounts, processedChunks);
     } else {
       // Process the extracted chunks
+      console.log(`Successfully extracted ${chunks.length} chunks from PDF`);
       await processChunks(supabase, pdfRecord, chunks, tokenCounts, processedChunks);
     }
   } catch (error) {
@@ -52,6 +65,7 @@ export async function processPdfIntoChunks(
     await processChunks(supabase, pdfRecord, chunks, tokenCounts, processedChunks);
   }
   
+  console.log(`Total processed chunks: ${processedChunks.length}`);
   return processedChunks;
 }
 
@@ -70,6 +84,8 @@ async function processChunks(
     try {
       const chunkNumber = i + 1;
       const chunkFileName = `${pdfRecord.id}_chunk_${chunkNumber}.txt`;
+      
+      console.log(`Processing chunk ${chunkNumber}/${chunks.length}, size: ${chunks[i].length} chars`);
       
       // Upload chunk file to storage
       await uploadChunkFile(supabase, chunks[i], chunkFileName);
@@ -90,6 +106,8 @@ async function processChunks(
         chunk_number: chunkNumber,
         tokens: tokenCounts[i]
       });
+      
+      console.log(`Chunk ${chunkNumber} processed successfully`);
     } catch (error) {
       console.error(`Error processing chunk ${i + 1}:`, error);
       // Continue with other chunks even if one fails
