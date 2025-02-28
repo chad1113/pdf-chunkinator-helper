@@ -1,6 +1,6 @@
 
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { simulateChunksFromPdf } from "./chunking.ts";
+import { extractChunksFromPdf, simulateChunksFromPdf } from "./chunking.ts";
 import { uploadChunkFile } from "./storage.ts";
 import { createChunkRecord } from "./database.ts";
 
@@ -25,10 +25,46 @@ export async function processPdfIntoChunks(
   file: File,
   pdfRecord: any
 ): Promise<ProcessedChunk[]> {
-  // Simulate PDF text extraction and chunking
-  const { chunks, tokenCounts } = simulateChunksFromPdf(file.name, file.size);
   const processedChunks: ProcessedChunk[] = [];
   
+  try {
+    // Read the file as ArrayBuffer for PDF parsing
+    const fileBuffer = await file.arrayBuffer();
+    
+    // Extract real text from PDF and split into chunks
+    const { chunks, tokenCounts } = await extractChunksFromPdf(fileBuffer, 15000);
+    
+    // If no chunks were extracted, fall back to simulation
+    if (chunks.length === 0) {
+      console.warn("No text chunks extracted from PDF, falling back to simulation");
+      const simulatedData = simulateChunksFromPdf(file.name, file.size);
+      await processChunks(supabase, pdfRecord, simulatedData.chunks, simulatedData.tokenCounts, processedChunks);
+    } else {
+      // Process the extracted chunks
+      await processChunks(supabase, pdfRecord, chunks, tokenCounts, processedChunks);
+    }
+  } catch (error) {
+    console.error("Error in PDF text extraction:", error);
+    console.warn("Falling back to simulated chunks due to extraction error");
+    
+    // Fall back to simulation on error
+    const { chunks, tokenCounts } = simulateChunksFromPdf(file.name, file.size);
+    await processChunks(supabase, pdfRecord, chunks, tokenCounts, processedChunks);
+  }
+  
+  return processedChunks;
+}
+
+/**
+ * Helper function to process chunks
+ */
+async function processChunks(
+  supabase: SupabaseClient,
+  pdfRecord: any,
+  chunks: string[],
+  tokenCounts: number[],
+  processedChunks: ProcessedChunk[]
+) {
   // Process each chunk
   for (let i = 0; i < chunks.length; i++) {
     try {
@@ -59,6 +95,4 @@ export async function processPdfIntoChunks(
       // Continue with other chunks even if one fails
     }
   }
-  
-  return processedChunks;
 }

@@ -1,11 +1,83 @@
+/**
+ * Real PDF text extraction and chunking utility
+ */
+import { pdf } from "https://cdn.skypack.dev/pdf-parse@1.1.1";
 
 /**
- * Simulates text chunking for a PDF file
+ * Extracts text from a PDF file and splits it into chunks
+ * @param pdfBuffer PDF file buffer
+ * @param maxChunkSize Maximum characters per chunk (approximate)
+ * @returns Extracted chunks and their token counts
+ */
+export async function extractChunksFromPdf(
+  pdfBuffer: ArrayBuffer, 
+  maxChunkSize: number = 10000
+): Promise<{ chunks: string[], tokenCounts: number[] }> {
+  try {
+    // Convert ArrayBuffer to Uint8Array for pdf-parse
+    const data = new Uint8Array(pdfBuffer);
+    
+    // Parse PDF document
+    const pdfData = await pdf(data);
+    const fullText = pdfData.text || "";
+    
+    console.log(`Extracted ${fullText.length} characters from PDF`);
+    
+    // If no text was extracted, return empty result
+    if (!fullText || fullText.trim().length === 0) {
+      console.warn("No text content found in PDF");
+      return { chunks: [], tokenCounts: [] };
+    }
+    
+    // Split text by paragraphs to maintain semantic meaning
+    const paragraphs = fullText
+      .split(/\r?\n\r?\n/)      // Split by double line breaks
+      .filter(p => p.trim())    // Remove empty paragraphs
+      .map(p => p.trim());      // Trim whitespace
+    
+    // Group paragraphs into chunks within maxChunkSize
+    const chunks: string[] = [];
+    let currentChunk = "";
+    
+    for (const paragraph of paragraphs) {
+      // If adding this paragraph would exceed maxChunkSize, start a new chunk
+      if (currentChunk && (currentChunk.length + paragraph.length > maxChunkSize)) {
+        chunks.push(currentChunk);
+        currentChunk = paragraph;
+      } else {
+        // Otherwise, add the paragraph to the current chunk
+        currentChunk = currentChunk 
+          ? `${currentChunk}\n\n${paragraph}`
+          : paragraph;
+      }
+    }
+    
+    // Add the last chunk if it's not empty
+    if (currentChunk) {
+      chunks.push(currentChunk);
+    }
+    
+    // Calculate estimated token counts (approx 1 token per 4 chars)
+    const tokenCounts = chunks.map(chunk => Math.ceil(chunk.length / 4));
+    
+    console.log(`Created ${chunks.length} chunks from PDF`);
+    
+    return { chunks, tokenCounts };
+  } catch (error) {
+    console.error("Error extracting text from PDF:", error);
+    throw new Error(`PDF text extraction failed: ${error.message}`);
+  }
+}
+
+/**
+ * Fallback function when PDF parsing fails
  * @param pdfName Original PDF filename
  * @param fileSize Size of the PDF in bytes
  * @returns Generated chunks and their token counts
  */
 export function simulateChunksFromPdf(pdfName: string, fileSize: number): { chunks: string[], tokenCounts: number[] } {
+  console.warn("Using simulated chunking as fallback");
+  
   // Generate a simulated text based on the file name and size
   const baseText = `This is simulated content from the PDF file: ${pdfName}. `;
   
