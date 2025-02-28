@@ -9,7 +9,68 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      pdf_chunks: {
+        Row: {
+          chunk_number: number
+          content: string
+          created_at: string | null
+          filename: string
+          id: string
+          pdf_id: string
+          tokens: number
+        }
+        Insert: {
+          chunk_number: number
+          content: string
+          created_at?: string | null
+          filename: string
+          id?: string
+          pdf_id: string
+          tokens: number
+        }
+        Update: {
+          chunk_number?: number
+          content?: string
+          created_at?: string | null
+          filename?: string
+          id?: string
+          pdf_id?: string
+          tokens?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pdf_chunks_pdf_id_fkey"
+            columns: ["pdf_id"]
+            isOneToOne: false
+            referencedRelation: "processed_pdfs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      processed_pdfs: {
+        Row: {
+          created_at: string | null
+          filename: string
+          id: string
+          original_name: string
+          size: number
+        }
+        Insert: {
+          created_at?: string | null
+          filename: string
+          id?: string
+          original_name: string
+          size: number
+        }
+        Update: {
+          created_at?: string | null
+          filename?: string
+          id?: string
+          original_name?: string
+          size?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

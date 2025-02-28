@@ -47,9 +47,26 @@ const PdfProcessor: React.FC<PdfProcessorProps> = ({ file, isProcessing, onProce
               : "bg-primary text-primary-foreground hover:bg-primary/90"
           )}
         >
-          <Play size={18} className={isProcessing ? "animate-pulse-subtle" : ""} />
-          <span>{isProcessing ? "Processing..." : "Run Script"}</span>
+          <Play size={18} className={isProcessing ? "animate-pulse" : ""} />
+          <span>
+            {isProcessing 
+              ? "Processing PDF (this may take a moment)..." 
+              : "Process PDF"
+            }
+          </span>
         </button>
+        
+        {isProcessing && (
+          <div className="mt-4 text-sm text-muted-foreground">
+            <p>The PDF is being processed. This includes:</p>
+            <ul className="list-disc pl-5 mt-2 space-y-1">
+              <li>Uploading the file</li>
+              <li>Extracting text content</li>
+              <li>Splitting into manageable chunks</li>
+              <li>Storing data for retrieval</li>
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );
