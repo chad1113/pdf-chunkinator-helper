@@ -2,6 +2,8 @@
 import React, { useState } from 'react';
 import { FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { isPdfFile } from '@/utils/fileValidation';
+import { toast } from '@/hooks/use-toast';
 
 interface FileUploaderProps {
   onFileSelect: (file: File) => void;
@@ -25,11 +27,16 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFileSelect }) => {
     
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
-      if (file.type === 'application/pdf') {
+      if (isPdfFile(file)) {
         onFileSelect(file);
       } else {
         console.error("Not a PDF file");
-        // Could add user feedback here for non-PDF files
+        toast({
+          title: "Invalid file format",
+          description: "Please upload a PDF file",
+          variant: "destructive",
+          duration: 3000,
+        });
       }
     }
   };
@@ -37,11 +44,16 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFileSelect }) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      if (file.type === 'application/pdf') {
+      if (isPdfFile(file)) {
         onFileSelect(file);
       } else {
         console.error("Not a PDF file");
-        // Could add user feedback here for non-PDF files
+        toast({
+          title: "Invalid file format",
+          description: "Please upload a PDF file",
+          variant: "destructive",
+          duration: 3000,
+        });
       }
     }
   };

@@ -2,6 +2,7 @@
 import React from 'react';
 import { Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatFileSize } from '@/utils/fileValidation';
 
 interface PdfProcessorProps {
   file: File | null;
@@ -11,16 +12,6 @@ interface PdfProcessorProps {
 
 const PdfProcessor: React.FC<PdfProcessorProps> = ({ file, isProcessing, onProcess }) => {
   if (!file) return null;
-
-  const formatFileSize = (sizeInBytes: number): string => {
-    if (sizeInBytes < 1024) {
-      return `${sizeInBytes} B`;
-    } else if (sizeInBytes < 1024 * 1024) {
-      return `${(sizeInBytes / 1024).toFixed(2)} KB`;
-    } else {
-      return `${(sizeInBytes / (1024 * 1024)).toFixed(2)} MB`;
-    }
-  };
 
   return (
     <div className="w-full animate-slide-up">

@@ -1,36 +1,25 @@
 
-// This is a simulated PDF processing function for the frontend
-// In a real application, this would call a backend API to process the PDF
+import { Chunk } from "@/components/ChunkList";
 
-import { Chunk } from '@/components/ChunkList';
-
-// Simulates splitting a PDF file into chunks based on token count
+// This is a mock implementation
+// In a real app, this would likely be an API call to a backend service
 export const splitPdfIntoChunks = async (file: File): Promise<Chunk[]> => {
-  // This is a mock function that simulates processing time
-  // and returns fake chunk data
+  // Simulate processing time
+  await new Promise(resolve => setTimeout(resolve, 2000));
   
-  return new Promise((resolve) => {
-    // Simulate processing time
-    setTimeout(() => {
-      // Generate random number of chunks between 3 and 8
-      const numChunks = Math.floor(Math.random() * 6) + 3;
-      
-      const chunks: Chunk[] = Array.from({ length: numChunks }).map((_, index) => {
-        // Generate random token count between 70k and 98k
-        const tokens = Math.floor(Math.random() * 28000) + 70000;
-        
-        return {
-          id: index + 1,
-          filename: `chunk_${index + 1}_${file.name}`,
-          tokens,
-          content: `This is simulated content for chunk ${index + 1} from ${file.name}. In a real application, this would contain actual text extracted from the PDF.`,
-        };
-      });
-      
-      resolve(chunks);
-    }, 2000); // Simulate 2 second processing time
-  });
+  // For demo purposes, we'll create some mock chunks based on the file size
+  const numChunks = Math.max(1, Math.floor(file.size / 100000));
+  const chunks: Chunk[] = [];
+  
+  for (let i = 1; i <= numChunks; i++) {
+    chunks.push({
+      id: i,
+      filename: `${file.name.replace('.pdf', '')}_chunk_${i}.txt`,
+      tokens: Math.floor(50000 + Math.random() * 40000), // Random token count between 50k-90k
+      content: `This is the content of chunk ${i} from ${file.name}. In a real implementation, this would contain the actual text extracted from the PDF.`
+    });
+  }
+  
+  console.log(`Created ${chunks.length} chunks from ${file.name}`);
+  return chunks;
 };
-
-// In a real app, you would use a PDF.js library to extract text
-// and implement a proper chunking algorithm based on token count
