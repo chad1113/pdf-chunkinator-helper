@@ -1,11 +1,11 @@
 
 import React, { useState } from 'react';
-import { Toaster } from 'sonner';
 import FileUploader from '@/components/FileUploader';
 import PdfProcessor from '@/components/PdfProcessor';
 import ChunkList, { Chunk } from '@/components/ChunkList';
 import { splitPdfIntoChunks } from '@/utils/pdfUtils';
 import { toast } from '@/hooks/use-toast';
+import { Toaster } from '@/components/ui/toaster';
 
 const Index = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
