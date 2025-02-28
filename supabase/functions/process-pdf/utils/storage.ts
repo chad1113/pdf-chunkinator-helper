@@ -1,71 +1,67 @@
 
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// Storage bucket for PDF chunks
+const CHUNKS_BUCKET = 'pdf_chunks';
+
 /**
- * Ensures that required storage buckets exist
+ * Ensures the storage bucket exists
  * @param supabase Supabase client
+ * @returns Promise resolving when bucket exists
  */
-export async function ensureStorageBuckets(supabase: SupabaseClient) {
+async function ensureBucketExists(supabase: SupabaseClient) {
+  // Check if bucket exists
+  const { data: buckets } = await supabase.storage.listBuckets();
+  const bucketExists = buckets?.some(bucket => bucket.name === CHUNKS_BUCKET);
+  
+  // Create bucket if it doesn't exist
+  if (!bucketExists) {
+    const { error } = await supabase.storage.createBucket(CHUNKS_BUCKET, {
+      public: false
+    });
+    
+    if (error) {
+      throw error;
+    }
+    
+    console.log(`Created ${CHUNKS_BUCKET} bucket`);
+  }
+}
+
+/**
+ * Uploads a PDF chunk to storage
+ * @param supabase Supabase client
+ * @param content Chunk content
+ * @param fileName Storage filename
+ * @returns Upload result
+ */
+export async function uploadChunkFile(
+  supabase: SupabaseClient,
+  content: string,
+  fileName: string
+) {
   try {
-    const { data: buckets } = await supabase.storage.listBuckets();
+    // Ensure bucket exists
+    await ensureBucketExists(supabase);
     
-    if (!buckets?.find(b => b.name === 'pdfs')) {
-      await supabase.storage.createBucket('pdfs', { public: false });
-      console.log('Created pdfs bucket');
+    // Create file with content
+    const file = new Blob([content], { type: 'text/plain' });
+    
+    // Upload to storage
+    const { error } = await supabase.storage
+      .from(CHUNKS_BUCKET)
+      .upload(fileName, file, {
+        contentType: 'text/plain',
+        upsert: true
+      });
+    
+    if (error) {
+      throw error;
     }
     
-    if (!buckets?.find(b => b.name === 'pdf_chunks')) {
-      await supabase.storage.createBucket('pdf_chunks', { public: false });
-      console.log('Created pdf_chunks bucket');
-    }
-  } catch (err) {
-    console.error('Error creating buckets:', err);
-    throw err;
-  }
-}
-
-/**
- * Uploads a PDF file to storage
- * @param supabase Supabase client
- * @param file File to upload
- * @param fileName Destination filename
- * @returns Upload result
- */
-export async function uploadPdfFile(supabase: SupabaseClient, file: File, fileName: string) {
-  const { data, error } = await supabase.storage
-    .from('pdfs')
-    .upload(fileName, file, {
-      contentType: file.type,
-      upsert: false
-    });
-    
-  if (error) {
-    console.error('Error uploading file:', error);
+    return fileName;
+  } catch (error) {
+    console.error(`Error uploading chunk file ${fileName}:`, error);
     throw error;
   }
-  
-  return data;
-}
-
-/**
- * Uploads a text chunk to storage
- * @param supabase Supabase client
- * @param chunkContent Text content
- * @param chunkFileName Destination filename
- * @returns Upload result
- */
-export async function uploadChunkFile(supabase: SupabaseClient, chunkContent: string, chunkFileName: string) {
-  const { data, error } = await supabase.storage
-    .from('pdf_chunks')
-    .upload(chunkFileName, chunkContent, {
-      contentType: 'text/plain',
-      upsert: false
-    });
-    
-  if (error) {
-    console.error(`Error uploading chunk:`, error);
-    throw error;
-  }
-  
-  return data;
 }

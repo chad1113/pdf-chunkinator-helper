@@ -2,88 +2,83 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "./utils/corsHeaders.ts";
-import { ensureStorageBuckets, uploadPdfFile } from "./utils/storage.ts";
 import { createPdfRecord } from "./utils/database.ts";
 import { processPdfIntoChunks } from "./utils/processor.ts";
 
 serve(async (req) => {
-  // Handle CORS preflight request
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: corsHeaders
-    });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Create Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    console.log("Processing PDF request");
     
-    // Ensure storage buckets exist
-    await ensureStorageBuckets(supabase);
+    // Check request method
+    if (req.method !== 'POST') {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Method not allowed' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 405 }
+      );
+    }
     
-    // Get formData from request
+    // Get the form data
     const formData = await req.formData();
-    const file = formData.get('file') as File;
+    const file = formData.get('file');
     
-    if (!file) {
+    // Check if file is provided
+    if (!file || !(file instanceof File)) {
       return new Response(
-        JSON.stringify({ error: 'No file uploaded' }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400 
-        }
+        JSON.stringify({ success: false, error: 'No file provided' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
     
-    // Validate file type
-    if (file.type !== 'application/pdf') {
+    // Check if file is a PDF
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
       return new Response(
-        JSON.stringify({ error: 'Uploaded file is not a PDF' }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400 
-        }
+        JSON.stringify({ success: false, error: 'File must be a PDF' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
     
-    // Create a unique filename for storage
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '');
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${timestamp}_${crypto.randomUUID()}.${fileExt}`;
+    // Initialize Supabase client
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
     
-    // Upload the PDF to storage
-    await uploadPdfFile(supabase, file, fileName);
-    
-    // Insert PDF record into database
-    const pdfRecord = await createPdfRecord(supabase, fileName, file.name, file.size);
+    // Create PDF record in database
+    const storageFileName = `${crypto.randomUUID()}.pdf`;
+    const pdfRecord = await createPdfRecord(
+      supabaseClient,
+      storageFileName,
+      file.name,
+      file.size
+    );
     
     // Process PDF into chunks
-    const processedChunks = await processPdfIntoChunks(supabase, file, pdfRecord);
+    const chunks = await processPdfIntoChunks(supabaseClient, file, pdfRecord);
     
-    // Return information about the processed PDF
+    // Return success response
     return new Response(
       JSON.stringify({
         success: true,
         pdf_id: pdfRecord.id,
-        total_chunks: processedChunks.length,
-        chunks: processedChunks
+        chunks: chunks
       }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-      
   } catch (error) {
-    console.error('Unexpected error:', error);
+    console.error("Error processing PDF:", error);
+    
+    // Return error response
     return new Response(
-      JSON.stringify({ error: 'An unexpected error occurred', details: error.message }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500 
-      }
+      JSON.stringify({
+        success: false,
+        error: `Failed to process PDF: ${error.message}`
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
 });

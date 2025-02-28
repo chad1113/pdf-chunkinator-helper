@@ -4,6 +4,35 @@
  */
 
 /**
+ * Sanitizes text by removing problematic characters and escape sequences
+ * @param text Text to sanitize
+ * @returns Sanitized text
+ */
+function sanitizeText(text: string): string {
+  if (!text) return '';
+  
+  // Replace problematic Unicode escape sequences
+  let sanitized = text
+    // Remove control characters
+    .replace(/[\x00-\x1F\x7F-\x9F]/g, '')
+    // Replace null bytes
+    .replace(/\u0000/g, '')
+    // Replace problematic escape sequences like \uXXXX
+    .replace(/\\u[0-9a-fA-F]{4}/g, '')
+    // Replace other common problematic sequences
+    .replace(/\\[^a-zA-Z0-9]/g, '')
+    // Replace non-printable characters
+    .replace(/[^\x20-\x7E\xA0-\uFFFF]/g, ' ');
+  
+  // Normalize whitespace
+  sanitized = sanitized
+    .replace(/\s+/g, ' ')
+    .trim();
+  
+  return sanitized;
+}
+
+/**
  * Extracts text from a PDF file and splits it into chunks
  * @param pdfBuffer PDF file buffer
  * @param maxChunkSize Maximum characters per chunk (approximate)
@@ -14,64 +43,35 @@ export async function extractChunksFromPdf(
   maxChunkSize: number = 10000
 ): Promise<{ chunks: string[], tokenCounts: number[] }> {
   try {
-    // For now, using mock extraction until we implement a proper PDF parser
-    // This is a stub for actual PDF text extraction
-    console.warn("Direct PDF parsing not implemented yet - falling back to buffer analysis");
+    console.log("Attempting to extract text from PDF buffer");
     
-    // Instead of trying to parse PDF, we'll try to extract some text content from the buffer
-    // This is not real PDF parsing but can extract some plain text embedded in the PDF
+    // Basic text extraction from PDF buffer
     const textDecoder = new TextDecoder('utf-8');
     const buffer = new Uint8Array(pdfBuffer);
     
-    // Try to find text content (this is a very basic approach)
-    let textContent = "";
-    
-    // Look for text between PDF markers (very simplified approach)
+    // Try to extract text using a simplified approach
+    // This is not a complete PDF parser but can extract some text
     const rawText = textDecoder.decode(buffer);
     
-    // Extract text between BT and ET markers (Begin Text and End Text in PDF)
-    const textFragments: string[] = [];
-    let btIndex = rawText.indexOf("BT");
+    // Sanitize the raw text first
+    const sanitizedRawText = sanitizeText(rawText);
     
-    while (btIndex !== -1) {
-      const etIndex = rawText.indexOf("ET", btIndex);
-      if (etIndex !== -1) {
-        const fragment = rawText.substring(btIndex + 2, etIndex).trim();
-        if (fragment && fragment.length > 5) {
-          textFragments.push(fragment);
-        }
-      }
-      btIndex = rawText.indexOf("BT", btIndex + 2);
-    }
+    // Extract potential text content
+    const textContent = extractTextFromRawPdf(sanitizedRawText);
     
-    // Also try to extract plain text based on common patterns
-    const plainTextMatches = rawText.match(/\(([\w\s.,;:!?-]+)\)/g);
-    if (plainTextMatches) {
-      for (const match of plainTextMatches) {
-        // Remove the parentheses
-        const text = match.substring(1, match.length - 1).trim();
-        if (text && text.length > 5) {
-          textFragments.push(text);
-        }
-      }
-    }
-    
-    // Join the fragments into a single text
-    textContent = textFragments.join("\n\n");
+    console.log(`Extracted approximately ${textContent.length} characters from PDF`);
     
     // If we couldn't extract meaningful text, return empty result
-    if (!textContent || textContent.trim().length < 50) {
+    if (!textContent || textContent.length < 50) {
       console.warn("Could not extract meaningful text from PDF");
       return { chunks: [], tokenCounts: [] };
     }
-    
-    console.log(`Extracted approximately ${textContent.length} characters from PDF`);
     
     // Split text into paragraphs
     const paragraphs = textContent
       .split(/\r?\n\r?\n/)
       .filter(p => p.trim())
-      .map(p => p.trim());
+      .map(p => sanitizeText(p.trim()));
     
     // Group paragraphs into chunks
     const chunks: string[] = [];
@@ -103,6 +103,50 @@ export async function extractChunksFromPdf(
     console.error("Error extracting text from PDF:", error);
     throw new Error(`PDF text extraction failed: ${error.message}`);
   }
+}
+
+/**
+ * Attempts to extract text content from raw PDF data
+ * @param rawText Raw text from PDF buffer
+ * @returns Extracted text content
+ */
+function extractTextFromRawPdf(rawText: string): string {
+  // Look for text patterns in PDF content
+  const textFragments: string[] = [];
+  
+  // Method 1: Look for text between parentheses (common in PDF text objects)
+  const parenthesesPattern = /\(([^()\\]*(?:\\.[^()\\]*)*)\)/g;
+  let match;
+  while ((match = parenthesesPattern.exec(rawText)) !== null) {
+    if (match[1] && match[1].length > 3) {
+      // Clean up PDF encoding
+      const cleaned = sanitizeText(match[1]
+        .replace(/\\(\d{3})/g, '') // Remove octal escape sequences
+        .replace(/\\n/g, '\n')     // Convert \n to actual newlines
+        .replace(/\\r/g, '\r')     // Convert \r to actual carriage returns
+        .replace(/\\\(/g, '(')     // Convert \( to (
+        .replace(/\\\)/g, ')')     // Convert \) to )
+        .replace(/\\\\/g, '\\'));  // Convert \\ to \
+      
+      if (cleaned.length > 3) {
+        textFragments.push(cleaned);
+      }
+    }
+  }
+  
+  // Method 2: Look for text after /T or /TJ operators
+  const textOperatorPattern = /\/(T|TJ)\s*(\[([^\]]*)\]|\([^)]*\))/g;
+  while ((match = textOperatorPattern.exec(rawText)) !== null) {
+    if (match[2]) {
+      const cleaned = sanitizeText(match[2]);
+      if (cleaned.length > 3) {
+        textFragments.push(cleaned);
+      }
+    }
+  }
+  
+  // Join extracted fragments with newlines
+  return textFragments.join('\n');
 }
 
 /**
@@ -145,6 +189,9 @@ export function simulateChunksFromPdf(pdfName: string, fileSize: number): { chun
       chunkContent += "This section contains detailed information relevant to the document's main themes. ";
       chunkContent += "Analysis is provided with supporting evidence and examples.\n\n";
     }
+    
+    // Ensure content is sanitized
+    chunkContent = sanitizeText(chunkContent);
     
     // Add chunk to the array
     chunks.push(chunkContent);
