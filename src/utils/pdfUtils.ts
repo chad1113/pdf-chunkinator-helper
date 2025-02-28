@@ -1,4 +1,3 @@
-
 import { Chunk } from "@/components/ChunkList";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -59,6 +58,21 @@ export const splitPdfIntoChunks = async (file: File): Promise<Chunk[]> => {
       description: `Created ${chunks.length} chunks`
     });
     
+    // Check if any chunks have text quality issues
+    const chunksWithIssues = chunks.filter(chunk => 
+      containsHighPercentageOfUnreadableChars(chunk.content)
+    );
+    
+    if (chunksWithIssues.length > 0 && chunksWithIssues.length === chunks.length) {
+      toast.warning(`Text extraction issues detected`, {
+        description: `Your PDF may contain mostly images or need optical character recognition.`
+      });
+    } else if (chunksWithIssues.length > 0) {
+      toast.warning(`Some chunks have text extraction issues`, {
+        description: `${chunksWithIssues.length} of ${chunks.length} chunks may have encoding problems.`
+      });
+    }
+    
     return chunks;
   } catch (error) {
     console.error('Error in PDF processing:', error);
@@ -89,11 +103,16 @@ const fetchChunkContent = async (chunkId: string): Promise<string> => {
       return 'No content available for this chunk';
     }
 
-    // Check if the content is readable or if it's likely garbled text
+    // First check - is this a "placeholder" chunk from our failover system?
+    if (data.content.includes("This PDF appears to contain content that could not be properly extracted")) {
+      return data.content;
+    }
+    
+    // Second check - does this content have encoding issues?
     if (containsHighPercentageOfUnreadableChars(data.content)) {
       return `[Note: This chunk may contain encoding issues or non-textual content. The PDF might be scanned or contain images rather than searchable text.]
 
-${data.content}`;
+${cleanupGarbledText(data.content)}`;
     }
 
     return data.content;
@@ -114,10 +133,58 @@ const containsHighPercentageOfUnreadableChars = (text: string): boolean => {
   
   // Count unicode characters that might indicate encoding problems
   const unicodeCharsCount = (text.match(/[\u0100-\uFFFF]/g) || []).length;
-
-  // If more than 15% of characters are problematic or high unicode, it's likely unreadable
+  
+  // Count normal text patterns (words, sentences)
+  const wordCount = (text.match(/\b[a-zA-Z]{2,}\b/g) || []).length;
+  const sentenceCount = (text.match(/[.!?]\s+[A-Z]/g) || []).length;
+  
+  // Various checks for readability
   const problematicRatio = problematicCharsCount / text.length;
   const unicodeRatio = unicodeCharsCount / text.length;
+  const wordDensity = wordCount / (text.length / 100);
   
-  return problematicRatio > 0.15 || unicodeRatio > 0.5;
+  // If high percentage of problematic chars or very low word density, it's likely unreadable
+  return (
+    problematicRatio > 0.1 || 
+    (unicodeRatio > 0.4 && wordDensity < 1) ||
+    (wordCount < 10 && text.length > 200)
+  );
+};
+
+/**
+ * Attempt to clean up garbled text for better readability
+ */
+const cleanupGarbledText = (text: string): string => {
+  // First try - replace clear garbage characters
+  let cleaned = text
+    .replace(/[\uFFFD\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F-\u009F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  
+  // Second pass - if still bad, get more aggressive with filtering
+  if (containsHighPercentageOfUnreadableChars(cleaned)) {
+    cleaned = cleaned
+      .replace(/[^\x20-\x7E\n\t]/g, ' ')  // Keep only basic ASCII
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+  
+  // Extract any readable segments
+  const readableSegments = [];
+  const sentences = cleaned.split(/[.!?]\s+/);
+  
+  for (const sentence of sentences) {
+    // If the sentence has multiple English words, it's likely readable
+    if (sentence.match(/\b[a-zA-Z]{3,}\b/g)?.length >= 3) {
+      readableSegments.push(sentence);
+    }
+  }
+  
+  // If we found readable segments, use them
+  if (readableSegments.length > 0) {
+    return readableSegments.join('. ');
+  }
+  
+  // Otherwise return our best-effort cleaned text
+  return cleaned;
 };
